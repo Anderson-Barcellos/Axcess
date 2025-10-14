@@ -1,5 +1,5 @@
-import { loadModelsConfig } from './config';
-import { computeMaxTokensForModel, routeRequest, RouteDecision, RouteParameters, RouteRequest, RouteResult } from './router';
+import { loadModelsConfig } from './config.js';
+import { computeMaxTokensForModel, routeRequest, RouteDecision, RouteParameters, RouteRequest, RouteResult } from './router.js';
 
 export interface ProviderUsage {
   inputTokens?: number;

@@ -1,5 +1,5 @@
-import { run, type DelegateContext, type DelegateResult } from '../delegate';
-import type { RouteMetadata, RouteRequest } from '../router';
+import { run, type DelegateContext, type DelegateResult } from '../delegate.js';
+import type { RouteMetadata, RouteRequest } from '../router.js';
 
 export interface DelegateDocsInput {
   instructions: string;

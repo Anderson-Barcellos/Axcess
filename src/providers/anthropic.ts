@@ -1,5 +1,5 @@
 import Anthropic, { APIError as AnthropicAPIError } from '@anthropic-ai/sdk';
-import type { ProviderHandler } from '../delegate';
+import type { ProviderHandler } from '../delegate.js';
 
 export interface AnthropicProviderOptions {
   apiKey?: string;

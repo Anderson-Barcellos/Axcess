@@ -1,12 +1,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/stdio.js';
-import { run, type DelegateContext, type DelegateResult } from './delegate';
-import type { RouteRequest } from './router';
-import { createOpenAIProvider } from './providers/openai';
-import { executeDelegateDiff, type DelegateDiffInput } from './tools/diff';
-import { executeDelegateTests, type DelegateTestsInput } from './tools/tests';
-import { executeDelegateDocs, type DelegateDocsInput } from './tools/docs';
-import { createDelegateContext as buildDelegateContext } from './providers';
+import { run, type DelegateContext, type DelegateResult } from './delegate.js';
+import type { RouteRequest } from './router.js';
+import { createOpenAIProvider } from './providers/openai.js';
+import { executeDelegateDiff, type DelegateDiffInput } from './tools/diff.js';
+import { executeDelegateTests, type DelegateTestsInput } from './tools/tests.js';
+import { executeDelegateDocs, type DelegateDocsInput } from './tools/docs.js';
+import { createDelegateContext as buildDelegateContext } from './providers/index.js';
 
 const logger = {
   debug: (...args: unknown[]) => console.debug('[axcess]', ...args),
@@ -158,11 +158,6 @@ server.tool(
         instructions: {
           type: 'string',
           description: 'Objetivo e escopo dos testes.',
-        metadata: {
-          rationale: result.rationale,
-          usage: result.usage,
-          cost: result.cost,
-          meta: result.meta,
         },
         context: { type: 'string' },
         language: { type: 'string' },

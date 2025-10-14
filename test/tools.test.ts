@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { DelegateContext, ProviderHandler } from '../src/delegate';
-import { executeDelegateDiff } from '../src/tools/diff';
-import { executeDelegateTests } from '../src/tools/tests';
-import { executeDelegateDocs } from '../src/tools/docs';
+import type { DelegateContext, ProviderHandler } from '../src/delegate.js';
+import { executeDelegateDiff } from '../src/tools/diff.js';
+import { executeDelegateTests } from '../src/tools/tests.js';
+import { executeDelegateDocs } from '../src/tools/docs.js';
 
 function createContext(outputText: string): DelegateContext {
   const provider: ProviderHandler = async () => ({

@@ -228,15 +228,19 @@ Sem `OPENAI_API_KEY`, o provider ativo falha na inicialização. As chaves de An
 * Provider OpenAI (`openai` SDK) com Responses API e coleta de `usage`.
 * Roteador lendo `models.json` + `policies.json` com rationale detalhada.
 
-**Fase M1 – Providers adicionais**
+**Fase M1 – Providers adicionais (entregue)**
 
-* Implementar handlers Anthropic/Google lendo `ANTHROPIC_API_KEY`/`GOOGLE_API_KEY`.
-* Normalizar responses para o contrato `ProviderResponse`.
+* ✅ Handlers Anthropic e Google implementados via `@anthropic-ai/sdk` e `@google-ai/generativelanguage`.
+* ✅ Leitura de `ANTHROPIC_API_KEY` e `GOOGLE_API_KEY` (ou `GOOGLE_AI_API_KEY`) do ambiente.
+* ✅ Normalização de responses para o contrato `ProviderResponse` (outputText, usage, raw).
+* ✅ Integração completa no router e delegate com fallback chain suportando os 3 providers.
+* ✅ Testes unitários para registry, handlers e routing.
 
-**Fase M2 – Tools complementares**
+**Fase M2 – Tools complementares (entregue)**
 
-* `delegate.diff` gerando patch unificado.
-* `delegate.tests` orchestrando frameworks configuráveis.
+* ✅ `delegate.diff` gerando patch unificado.
+* ✅ `delegate.tests` orchestrando frameworks configuráveis.
+* ✅ `delegate.docs` gerando documentação.
 
 **Fase M3 – Telemetria avançada**
 
@@ -314,21 +318,48 @@ _A preencher conforme backlog evoluir._
 
 ## 11) Como rodar (dev)
 
-```
-# instalar deps
-pnpm install
+### Instalação e build
+
+```bash
+# instalar dependências
+npm install
 
 # gerar build (dist/)
-pnpm build
+npm run build
 
 # rodar o servidor MCP (stdio)
-pnpm start
+npm start
 
-# modo dev sem build prévia (ts-node)
-pnpm ts-node src/index.ts
+# executar testes
+npm test
 ```
 
-No cliente (Claude Code / Codex CLI), registra em `mcpServers` apontando para `pnpm start` (ou `node dist/index.js`) e injeta `OPENAI_API_KEY` nas variáveis de ambiente. Quando os providers de Anthropic/Google estiverem plugados, basta adicionar as chaves correspondentes.
+### Variáveis de ambiente
+
+O orquestrador suporta três providers configuráveis via environment variables:
+
+* **`OPENAI_API_KEY`**: Chave de API da OpenAI para usar os modelos GPT (gpt-4o, gpt-4o-mini).
+  * Obtenha em: https://platform.openai.com/api-keys
+  
+* **`ANTHROPIC_API_KEY`**: Chave de API da Anthropic para usar os modelos Claude (claude-3-5-sonnet).
+  * Obtenha em: https://console.anthropic.com/settings/keys
+  
+* **`GOOGLE_API_KEY`** ou **`GOOGLE_AI_API_KEY`**: Chave de API do Google para usar os modelos Gemini (gemini-1.5-pro).
+  * Obtenha em: https://aistudio.google.com/app/apikey
+
+**Exemplo de configuração** (no shell ou em `.env`):
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_API_KEY="..."
+```
+
+**Nota**: Se uma chave não estiver configurada, o provider correspondente retornará erro ao ser chamado, mas o servidor continuará funcionando normalmente com os outros providers disponíveis.
+
+### Integração com MCP Client
+
+No cliente (Claude Code / Codex CLI), registre em `mcpServers` apontando para `npm start` (ou `node dist/index.js`) e configure as variáveis de ambiente conforme necessário.
 
 ---
 
