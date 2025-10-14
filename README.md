@@ -1,3 +1,4 @@
+
 # Plano de Orquestração Multi‑Modelo via MCP para Codex/Claude
 
 > **Objetivo**: construir um servidor **MCP** enxuto que rode por **stdio** e exponha uma tool `delegate.run` (e irmãs) para o **Claude Code CLI** (ou Codex) agir como **orquestrador**, delegando tarefas dinamicamente a modelos **OpenAI** com tuas chaves: `gpt-5-codex`, `gpt-5-mini`, `gpt-5-chat` e `gpt-5`. O roteador escolhe o modelo com base em **tipo de tarefa**, **tamanho/complexidade**, **criticidade** e **custo**, com **fallback** e **logs de uso**.
@@ -291,3 +292,7 @@ You are a documentation agent. Produce concise Markdown docs with a clear title 
 ```
 
 ---
+=======
+# Axcess
+An LLM orchestrator
+
