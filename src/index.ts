@@ -6,6 +6,7 @@ import { createOpenAIProvider } from './providers/openai';
 import { executeDelegateDiff, type DelegateDiffInput } from './tools/diff';
 import { executeDelegateTests, type DelegateTestsInput } from './tools/tests';
 import { executeDelegateDocs, type DelegateDocsInput } from './tools/docs';
+import { createDelegateContext as buildDelegateContext } from './providers';
 
 const logger = {
   debug: (...args: unknown[]) => console.debug('[axcess]', ...args),
@@ -14,16 +15,7 @@ const logger = {
   error: (...args: unknown[]) => console.error('[axcess]', ...args),
 };
 
-function createDelegateContext(): DelegateContext {
-  return {
-    providers: {
-      openai: createOpenAIProvider(),
-    },
-    logger,
-  };
-}
-
-const delegateContext = createDelegateContext();
+const delegateContext: DelegateContext = buildDelegateContext(logger);
 
 const server = new Server({
   name: 'axcess-mcp',
@@ -166,6 +158,11 @@ server.tool(
         instructions: {
           type: 'string',
           description: 'Objetivo e escopo dos testes.',
+        metadata: {
+          rationale: result.rationale,
+          usage: result.usage,
+          cost: result.cost,
+          meta: result.meta,
         },
         context: { type: 'string' },
         language: { type: 'string' },
@@ -232,14 +229,19 @@ server.tool(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('delegate.docs: falha ao processar request', message);
+      const normalizedError = normalizeError(error);
+      logger.error('delegate.run: falha ao processar request', normalizedError);
       return {
         isError: true,
         content: [
           {
             type: 'text',
-            text: message,
+            text: normalizedError.message,
           },
         ],
+        metadata: {
+          error: normalizedError,
+        },
       };
     }
   }
@@ -281,7 +283,20 @@ async function main() {
   await server.connect(transport);
 }
 
-main().catch((error) => {
-  logger.error('Erro ao iniciar o servidor MCP:', error);
-  process.exit(1);
+void main().catch((error) => {
+  const normalizedError = normalizeError(error);
+  logger.error('mcp.startup_failed', normalizedError);
+  throw error;
 });
+
+function normalizeError(error: unknown): { message: string; stack?: string; name?: string } {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    };
+  }
+
+  return { message: String(error) };
+}

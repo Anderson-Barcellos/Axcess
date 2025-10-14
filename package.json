@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "file:vendor/modelcontextprotocol-sdk",
+    "@anthropic-ai/sdk": "^0.27.2",
+    "@google-ai/generativelanguage": "^0.6.0",
+    "google-auth-library": "^9.14.1",
     "openai": "^4.52.3"
   },
   "devDependencies": {
