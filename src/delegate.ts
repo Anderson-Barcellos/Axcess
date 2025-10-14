@@ -119,20 +119,40 @@ export async function run(request: RouteRequest, context: DelegateContext): Prom
       const providerUsage = response.usage ?? {};
       const estimatedInputTokens = routing.usage.estimated_input_tokens;
       const sanitizedInput = sanitizeTokens(providerUsage.inputTokens);
-      const inputTokens = sanitizedInput ?? estimatedInputTokens;
-      let outputTokens: number;
       const sanitizedOutput = sanitizeTokens(providerUsage.outputTokens);
-      if (sanitizedOutput !== undefined) {
-        outputTokens = sanitizedOutput;
-      } else {
-        const sanitizedTotal = sanitizeTokens(providerUsage.totalTokens);
-        if (sanitizedTotal !== undefined) {
+      const sanitizedTotal = sanitizeTokens(providerUsage.totalTokens);
+
+      const tokenFallbackNotes: string[] = [];
+      let inputTokens = estimatedInputTokens;
+      let outputTokens = 0;
+
+      const appliedTotalOnlyFallback =
+        sanitizedInput === undefined && sanitizedOutput === undefined && sanitizedTotal !== undefined;
+
+      if (sanitizedInput !== undefined) {
+        inputTokens = sanitizedInput;
+      } else if (appliedTotalOnlyFallback) {
+        inputTokens = sanitizedTotal!;
+        outputTokens = 0;
+        const message =
+          'Provider informou apenas totalTokens; atribuindo todo o valor como input e 0 como output.';
+        tokenFallbackNotes.push(message);
+        logger?.debug?.(
+          'delegate.run: providerUsage com somente totalTokens; assumindo input=%d e output=%d.',
+          inputTokens,
+          outputTokens,
+        );
+      }
+
+      if (!appliedTotalOnlyFallback) {
+        if (sanitizedOutput !== undefined) {
+          outputTokens = sanitizedOutput;
+        } else if (sanitizedTotal !== undefined) {
           outputTokens = Math.max(sanitizedTotal - inputTokens, 0);
-        } else {
-          outputTokens = 0;
         }
       }
-      const totalTokens = inputTokens + outputTokens;
+
+      const totalTokens = sanitizedTotal ?? inputTokens + outputTokens;
 
       const modelInfo = modelsConfig.models[decision.modelId];
       if (!modelInfo) {
@@ -148,7 +168,7 @@ export async function run(request: RouteRequest, context: DelegateContext): Prom
       attempts.push(attemptEntry);
 
       const fallbackUsed = index > 0;
-      const rationale = [...routing.rationale];
+      const rationale = [...routing.rationale, ...tokenFallbackNotes];
       if (fallbackUsed) {
         rationale.push(`Fallback usado: ${decision.alias}.`);
       }
