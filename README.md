@@ -1,17 +1,16 @@
-
 # Plano de Orquestração Multi‑Modelo via MCP para Codex/Claude
 
-> **Objetivo**: construir um servidor **MCP** enxuto que rode por **stdio** e exponha uma tool `delegate.run` (e irmãs) para o **Claude Code CLI** (ou Codex) agir como **orquestrador**, delegando tarefas dinamicamente a modelos **OpenAI** com tuas chaves: `gpt-5-codex`, `gpt-5-mini`, `gpt-5-chat` e `gpt-5`. O roteador escolhe o modelo com base em **tipo de tarefa**, **tamanho/complexidade**, **criticidade** e **custo**, com **fallback** e **logs de uso**.
+> **Objetivo**: entregar um servidor **MCP** leve, rodando por **stdio**, que expõe a tool `delegate.run` para o **Claude Code CLI / Codex** atuar como orquestrador. O roteador decide entre os modelos declarados em `conf/models.json` — hoje com aliases apontando para `openai:gpt-4o-mini`, `openai:gpt-4o`, `anthropic:claude-3-5-sonnet` e `google:gemini-1.5-pro` — aplicando heurísticas de idioma, janelas de tokens e custos definidos em `conf/policies.json`, com fallback automático e logs estruturados.
 
 ---
 
 ## 1) Escopo
 
-**Inclui**: servidor MCP stdio (Node/TS), roteador de modelos declarativo, provider OpenAI, tools principais (`delegate.run`, `delegate.diff`, `delegate.tests`, `delegate.docs`), políticas de custo/tokens, logs/telemetria básica, configuração para Claude/Claude Code.
+**Inclui**: servidor MCP (Node/TS), roteador declarativo, provider OpenAI ativo, suporte para aliases/configs Anthropic e Google (via configuração), ferramenta `delegate.run`, cálculo de custo/tokens por chamada, telemetria básica em stdout e integração com Claude/Codex.
 
-**Não inclui (agendado Fase 2+)**: consenso multi‑modelo paralelo, retriever vetorial externo (Cipher/Qdrant), UI própria, persistência de sessões, autorização multiusuário.
+**Não inclui (fase futura)**: providers alternativos já implementados, tools adicionais (`delegate.diff`, `delegate.tests`, etc.), persistência de sessões, dashboards ou autenticação multiusuário.
 
-**Definição de Pronto do MVP**: `delegate.run` atendendo 4 tipos de tarefa, roteamento funcionando com `forceModel` opcional, métricas de uso por chamada, integração com Claude Code via `mcpServers` e README de uso.
+**Definição de pronto**: `delegate.run` respondendo via stdio com roteamento completo (`forceModel`, caps e heurísticas), métricas de uso/custo retornadas no metadata MCP e README alinhado à configuração real.
 
 ---
 
@@ -21,122 +20,182 @@
 flowchart TB
   C[Claude Code / Codex (MCP Client)] -->|tools/call (stdio)| S[Orquestrador MCP]
   subgraph S[Servidor MCP]
-    R[Router de Modelos] --> P[Provider OpenAI]
+    R[Router de Modelos] --> P1[Provider OpenAI]
+    R --> P2[(Providers adicionais)]
     T1[tool: delegate.run]
-    T2[tool: delegate.diff]
-    T3[tool: delegate.tests]
-    T4[tool: delegate.docs]
   end
   C -->|tools/list| S
-  P --> S --> C
+  P1 --> S --> C
 ```
 
 **Componentes**
 
-* **Router**: lê `conf/models.json` e `conf/policies.json`, decide modelo, `max_output_tokens`, temperatura e `rationale`.
-* **Provider OpenAI**: SDK `openai`, usando **Responses API**; normaliza `output_text` e `usage`.
-* **Tools**: transformam a intenção do cliente em chamadas ao provider; `delegate.diff` retorna **patch unificado** para aplicação direta.
-* **Telemetry**: console logs estruturados + arquivo CSV opcional.
+* **Router**: consome `conf/models.json` + `conf/policies.json`, resolve alias/modelo, ajusta `max_output_tokens`, temperatura e gera `rationale` + fallback chain.
+* **Providers**: OpenAI implementado (SDK `openai`, Responses API); módulos para Anthropic/Google plugam no mesmo contrato `ProviderHandler`.
+* **delegate.run**: converte a requisição MCP em chamadas aos providers, calcula custo/tokens, aplica caps e registra tentativas.
+* **Telemetry**: logs estruturados (`[axcess] ...`) indicando rota escolhida, fallback, erros e métricas de custo.
 
 ---
 
 ## 3) Contratos & Configuração
 
-### 3.1 Variáveis de ambiente (`.env`)
+### 3.1 Modelos (`conf/models.json`)
 
-```
-OPENAI_API_KEY=sk-...
-ORCH_LOG_LEVEL=info
-ORCH_MAX_INPUT_TOKENS=32000
-ORCH_COST_ALERT_USD=2.00     # alerta por chamada
-```
-
-### 3.2 Modelos e políticas (`conf/*.json`)
-
-`conf/models.json`
+`conf/models.json` define aliases e metadados dos modelos. Snapshot atual:
 
 ```json
 {
   "aliases": {
-    "codex": "gpt-5-codex",
-    "mini":  "gpt-5-mini",
-    "chat":  "gpt-5-chat",
-    "full":  "gpt-5"
+    "chat-default": "openai:gpt-4o-mini",
+    "chat-premium": "openai:gpt-4o",
+    "reasoning": "anthropic:claude-3-5-sonnet",
+    "long-context": "google:gemini-1.5-pro"
   },
-  "routing": {
-    "code_generate": ["codex", "mini", "full"],
-    "refactor":      ["codex", "full", "mini"],
-    "tests":         ["mini",  "codex", "full"],
-    "docs":          ["chat",  "mini",  "full"],
-    "deep_reasoning": ["full", "codex"]
+  "models": {
+    "openai:gpt-4o-mini": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "max_output_tokens": 4096,
+      "temperature": 0.7,
+      "cap": { "default": 2048, "hard": 4096 },
+      "pricing": { "currency": "USD", "input": 0.000003, "output": 0.000009 }
+    },
+    "openai:gpt-4o": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "max_output_tokens": 4096,
+      "temperature": 0.65,
+      "cap": { "default": 3072, "hard": 4096 },
+      "pricing": { "currency": "USD", "input": 0.00001, "output": 0.00003 }
+    },
+    "anthropic:claude-3-5-sonnet": {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet",
+      "max_output_tokens": 4096,
+      "temperature": 0.6,
+      "cap": { "default": 2048, "hard": 4096 },
+      "pricing": { "currency": "USD", "input": 0.000008, "output": 0.000024 }
+    },
+    "google:gemini-1.5-pro": {
+      "provider": "google",
+      "model": "gemini-1.5-pro",
+      "max_output_tokens": 8192,
+      "temperature": 0.7,
+      "cap": { "default": 4096, "hard": 8192 },
+      "pricing": { "currency": "USD", "input": 0.0000075, "output": 0.0000225 }
+    }
   }
 }
 ```
 
-`conf/policies.json`
+O cálculo de custo usa os campos `pricing.input`/`pricing.output` multiplicados pelos tokens reportados (ou estimados). Se o provider informar apenas `totalTokens`, todo o valor vira input com output zerado.
 
-```json
-{
-  "defaults": { "max_output_tokens": 2048, "temperature": 0.2 },
-  "overrides": {
-    "docs": { "temperature": 0.7 },
-    "deep_reasoning": { "max_output_tokens": 4096 }
-  },
-  "caps": {
-    "mini": { "max_input": 12000 },
-    "chat": { "max_input": 12000 }
-  }
-}
+### 3.2 Políticas (`conf/policies.json`)
+
+`conf/policies.json` guia o roteamento:
+
+* `routing.defaultAlias`: fallback geral (`chat-default`).
+* `routing.languageHeuristics`: PT força `chat-premium` e temperatura 0.6; EN mantém `chat-default` a 0.7; ES usa 0.65.
+* `routing.tokenBuckets`: buckets por tamanho de prompt definem alias (até 1200 tokens usa `chat-default`; 1200-2800 vai pra `chat-premium`; acima disso cai no `long-context`).
+* `routing.fallbacks`: ordem de tentativas caso ocorra erro.
+* `caps`: teto padrão (2048) com overrides por tier (`trial`, `pro`, `enterprise`).
+* `temperatures`: default 0.7 + perfis `code` (0.25) e `creative` (0.9).
+
+O roteador combina heurísticas de idioma, domínio (`metadata.domain`), tier (`metadata.tier`) e caps adicionais (`caps.maxOutputTokens`). O rationale retornado na resposta detalha cada decisão tomada.
+
+### 3.3 Variáveis de ambiente (`.env`)
+
+```
+# Providers (obrigatório para o handler correspondente)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...   # requerido quando o provider Anthropic estiver habilitado
+GOOGLE_API_KEY=ya29....        # requerido quando o provider Gemini estiver habilitado
+
+# Logging / custos (opcional, consumido pelos módulos de telemetria)
+ORCH_LOG_LEVEL=info            # debug|info|warn|error (default: info)
+ORCH_COST_ALERT_USD=2.00       # alerta por chamada que ultrapassar esse custo total
+ORCH_USAGE_EXPORT=./logs.csv   # caminho para export de uso quando habilitado
 ```
 
-### 3.3 Tool principal — `delegate.run`
+Sem `OPENAI_API_KEY`, o provider ativo falha na inicialização. As chaves de Anthropic/Google podem ficar prontas para quando os handlers forem adicionados. As flags `ORCH_*` serão lidas pelos módulos de telemetria/custos nas próximas tasks — manter default deixa o logger atual somente em stdout.
 
-**Assinatura (MCP)**
+### 3.4 Tool principal — `delegate.run`
+
+**Assinatura MCP (`tools/list`)**
 
 ```json
 {
   "name": "delegate.run",
-  "description": "Roteia e executa tarefas em subagentes OpenAI",
+  "description": "Roteia prompts para os modelos configurados e retorna a resposta.",
   "input_schema": {
     "type": "object",
     "properties": {
-      "task": {"type":"string", "enum":["code_generate","refactor","tests","docs","deep_reasoning"]},
-      "input": {"type":"string"},
-      "language": {"type":"string"},
-      "safetyCritical": {"type":"boolean"},
-      "forceModel": {"type":"string", "description":"Opcional: substitui roteador (ex.: gpt-5-codex)"},
-      "return": {"type":"string", "enum":["code","patch","text"], "default":"code"}
+      "prompt": {
+        "type": "string",
+        "description": "Prompt a ser encaminhado para o roteador."
+      },
+      "forceModel": {
+        "type": "string",
+        "description": "Alias ou modelId para bypass do roteador."
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "language": { "type": "string" },
+          "tier": { "type": "string" },
+          "domain": {
+            "type": "string",
+            "enum": ["code", "creative", "default"]
+          },
+          "temperature": { "type": "number" }
+        },
+        "additionalProperties": false
+      },
+      "caps": {
+        "type": "object",
+        "properties": {
+          "maxOutputTokens": { "type": "number" }
+        },
+        "additionalProperties": false
+      }
     },
-    "required": ["task","input"]
+    "required": ["prompt"],
+    "additionalProperties": false
   }
 }
 ```
 
-**Saída**
+**Resposta padrão (`tools/call`)**
 
 ```json
 {
-  "result": "...",
-  "meta": {
-    "model": "gpt-5-codex",
-    "rationale": "task=refactor size=5800 safety=true => gpt-5-codex",
-    "usage": {"input": 1234, "output": 456},
-    "cost_usd": 0.0123
-  }
-}
-```
-
-### 3.4 Config do cliente (Claude Code/Claude Desktop)
-
-`mcpServers` (exemplo)
-
-```json
-{
-  "mcpServers": {
-    "orquestrador-anders": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "env": {"OPENAI_API_KEY": "${OPENAI_API_KEY}"}
+  "content": [
+    {
+      "type": "text",
+      "text": "... output gerado pelo modelo ..."
+    }
+  ],
+  "metadata": {
+    "decision": { "provider": "openai", "model": "gpt-4o-mini", "alias": "chat-default" },
+    "parameters": { "max_output_tokens": 2048, "temperature": 0.7 },
+    "rationale": ["..."],
+    "usage": {
+      "estimated_input_tokens": 256,
+      "input_tokens": 220,
+      "output_tokens": 180,
+      "total_tokens": 400
+    },
+    "cost": { "currency": "USD", "input": 0.00066, "output": 0.00162, "total": 0.00228 },
+    "meta": {
+      "fallback_used": false,
+      "attempts": [
+        {
+          "alias": "chat-default",
+          "provider": "openai",
+          "model": "gpt-4o-mini",
+          "success": true
+        }
+      ]
     }
   }
 }
@@ -144,124 +203,112 @@ ORCH_COST_ALERT_USD=2.00     # alerta por chamada
 
 ---
 
-## 4) Estratégia de Roteamento
+## 4) Fluxo de execução (delegate.run)
 
-1. **Classificar tarefa**: o cliente informa `task`; fallback para `docs` se não reconhecido.
-2. **Estimar tokens**: `approxTokens = ceil(chars/3)`; respeitar `caps` por modelo.
-3. **Heurísticas**:
-
-   * `safetyCritical=true` força `codex`/`full`.
-   * `approxTokens > caps.mini.max_input` pula `mini`/`chat`.
-   * `language` ∈ {"c","cpp","rust"} tende a `codex`.
-4. **Fallback**: tentar em ordem do `routing` (timeout 45–60s); se falhar, próximo modelo.
-5. **Controls**: `forceModel` sobrescreve; `return` ajusta prompt de saída (patch vs code).
-
-**Prompt base por tipo** (trechos de system prompt)
-
-* `code_generate`: "Return only runnable code. Add minimal comments. Avoid explanations."
-* `refactor`: "Return a unified diff patch. Do not include prose."
-* `tests`: "Create unit tests with deterministic seeds."
-* `docs`: "Return concise documentation in Markdown."
-* `deep_reasoning`: "Think stepwise but output only the final artifact."
+1. Cliente MCP envia `prompt` + metadados opcionais.
+2. `router.ts` estima tokens, aplica heurísticas de idioma/domínio, caps de tier e caps da requisição, resolve alias/modelo e monta fallback chain.
+3. `delegate.ts` tenta o modelo principal; em caso de erro, percorre fallback list registrando cada tentativa.
+4. O provider retorna texto + contadores (`usage`). O delegado normaliza, calcula custo (`pricing` x tokens), agrega rationale e devolve via MCP.
 
 ---
 
-## 5) Telemetria, Custos e Orçamentos
+## 5) Telemetria & custos
 
-* **Logs**: JSON por linha com `ts`, `task`, `decision`, `usage`, `latency_ms`, `cost_usd`.
-* **CSV opcional**: `./logs/usage.csv` para planilhas.
-* **Alertas**: se `cost_usd > ORCH_COST_ALERT_USD`, avisar no `meta`.
-* **Token diet**: truncar input acima de `ORCH_MAX_INPUT_TOKENS`, preferindo janelas de contexto recentes.
+* Logs em stdout com prefixo `[axcess]` detalham rotas, sucesso/falha e custos.
+* `meta.attempts` registra cada tentativa, útil para dashboards futuros.
+* Quando os flags `ORCH_COST_ALERT_USD`/`ORCH_USAGE_EXPORT` estiverem habilitados, o módulo de telemetria exportará CSV e emitirá avisos (placeholder preparado no roadmap).
 
 ---
 
-## 6) Roadmap por Fases
+## 6) Roadmap por fases
 
-**Fase M0 – Skeleton (0.5d)**
+**Fase M0 – Skeleton (entregue)**
 
-* Node 20+, TS, `openai` SDK, CLI build (`tsup`/`esbuild`).
-* Loop stdio MCP mínimo: `tools/list` e `tools/call`.
+* Loop stdio MCP mínimo (`tools/list`/`tools/call`) em Node 20+/TS.
+* Provider OpenAI (`openai` SDK) com Responses API e coleta de `usage`.
+* Roteador lendo `models.json` + `policies.json` com rationale detalhada.
 
-**Fase M1 – Roteador/Provider (1d)**
+**Fase M1 – Providers adicionais**
 
-* `router.ts` + `policies.json` + `models.json`.
-* `providers/openai.ts` com Responses API e coleta de `usage`.
-* Tool `delegate.run` (retorno `code|text`).
+* Implementar handlers Anthropic/Google lendo `ANTHROPIC_API_KEY`/`GOOGLE_API_KEY`.
+* Normalizar responses para o contrato `ProviderResponse`.
 
-**Fase M2 – Patch e Tests (1d)**
+**Fase M2 – Tools complementares**
 
-* Tool `delegate.diff` (formato `git diff --unified`).
-* Tool `delegate.tests` (estrutura por framework; Jest/PyTest parametrizável).
+* `delegate.diff` gerando patch unificado.
+* `delegate.tests` orchestrando frameworks configuráveis.
 
-**Fase M3 – Controles de custo (0.5d)**
+**Fase M3 – Telemetria avançada**
 
-* Estimativa de custo por chamada; alerta/abort ao exceder teto.
-* `forceModel`, `safetyCritical` e truncamento por prioridade.
+* Consumo real das flags `ORCH_*` (nível de log, alerta de custo, export CSV).
+* Retry exponencial com jitter e métricas de latência.
 
-**Fase M4 – Qualidade & DX (1d)**
+**Fase M4 – Integrações opcionais**
 
-* Prompts refinados por tarefa; templates por linguagem.
-* Métricas de latência; retry exponencial; timeouts distintos por modelo.
-
-**Fase M5 – Integrações opcionais (2d+)**
-
-* `retrieve.search` (Cipher/Qdrant) para contexto fino.
-* Modo "consenso": 2 modelos em paralelo + comparador simples.
+* `retrieve.search` (Cipher/Qdrant) para contexto adicional.
+* Estratégias de consenso multi-modelo.
 
 ---
 
 ## 7) Tarefas (Checklist para o Codex)
 
+_A preencher conforme backlog evoluir._
+
 ---
 
-## 8) Exemplos de Chamada (lado do cliente)
+## 8) Exemplos de chamada (lado do cliente)
 
-**Gerar código**
+**Prompt padrão com heurística automática**
 
 ```json
 {
   "name": "delegate.run",
   "arguments": {
-    "task": "code_generate",
-    "language": "python",
-    "input": "Write a FastAPI endpoint that streams Server-Sent Events for progress updates.",
-    "return": "code"
+    "prompt": "Escreve um resumo em português sobre MCP routers.",
+    "metadata": {
+      "domain": "default"
+    }
   }
 }
 ```
 
-**Refatorar com patch**
+**Forçando modelo Anthropic com cap customizado**
 
 ```json
 {
   "name": "delegate.run",
   "arguments": {
-    "task": "refactor",
-    "language": "typescript",
-    "input": "Refactor this file to remove side effects and add DI... <file contents>",
-    "return": "patch",
-    "safetyCritical": true
+    "prompt": "Break down this legal argument and propose counterpoints.",
+    "forceModel": "reasoning",
+    "metadata": {
+      "language": "en",
+      "tier": "enterprise",
+      "domain": "creative"
+    },
+    "caps": {
+      "maxOutputTokens": 2048
+    }
   }
 }
 ```
 
 ---
 
-## 9) Boas Práticas de Prompt (agente)
+## 9) Boas práticas de prompt (agente)
 
 * Dê **instruções de saída** claras: *only code*, *only patch*, *only markdown*.
 * Defina **limites** (linhas, tokens, tempo) e peça para **cortar** quando ultrapassar.
-* Para `patch`, exigir cabeçalhos `diff --git a/... b/...` e contexto `@@`.
-* Para `tests`, exigir **semente fixa** e **sem dependências externas**.
+* Para `patch`, exija cabeçalhos `diff --git a/... b/...` e contexto `@@`.
+* Para `tests`, use **semente fixa** e evite dependências externas.
 
 ---
 
-## 10) Riscos & Mitigações
+## 10) Riscos & mitigações
 
-* **Timeouts/limites**: estabelecer timeouts e fallback imediato para próximo modelo.
-* **Explosão de tokens**: truncar entradas e preferir janelas recentes; usar mini/chat quando possível.
-* **Qualidade inconsistente**: logs comparativos por tarefa; sticky‑routing por linguagem.
-* **Custos**: tetos por tarefa e alerta por chamada.
+* **Timeouts/limites**: definir timeouts por provider e fallback imediato.
+* **Explosão de tokens**: truncar entradas grandes; preferir `chat-default`/`chat-premium` quando possível.
+* **Qualidade inconsistente**: logs comparativos por tarefa e sticky-routing por linguagem.
+* **Custos**: tetos por tarefa e alerta por chamada (via `ORCH_COST_ALERT_USD`).
 
 ---
 
@@ -269,30 +316,26 @@ ORCH_COST_ALERT_USD=2.00     # alerta por chamada
 
 ```
 # instalar deps
-pnpm i
+pnpm install
 
-# build
+# gerar build (dist/)
 pnpm build
 
-# executar servidor MCP por stdio
-node dist/index.js
+# rodar o servidor MCP (stdio)
+pnpm start
+
+# modo dev sem build prévia (ts-node)
+pnpm ts-node src/index.ts
 ```
 
-Configura no cliente `mcpServers` apontando para `node dist/index.js` e injeta `OPENAI_API_KEY` no `env`.
+No cliente (Claude Code / Codex CLI), registra em `mcpServers` apontando para `pnpm start` (ou `node dist/index.js`) e injeta `OPENAI_API_KEY` nas variáveis de ambiente. Quando os providers de Anthropic/Google estiverem plugados, basta adicionar as chaves correspondentes.
 
 ---
 
-## 12) Anexo: System Prompts (rascunho)
+## 12) Anexo: System prompts (rascunho)
 
-**`code_generate`** (system)
-
+**`code_generate` (system)**
 
 ```
 You are a documentation agent. Produce concise Markdown docs with a clear title and sections. No HTML. Keep it short.
 ```
-
----
-=======
-# Axcess
-An LLM orchestrator
-
