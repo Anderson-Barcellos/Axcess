@@ -2,7 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/stdio.js';
 import { run, type DelegateContext, type DelegateResult } from './delegate';
 import type { RouteRequest } from './router';
-import { createOpenAIProvider } from './providers/openai';
+import { createDelegateContext as buildDelegateContext } from './providers';
 
 const logger = {
   debug: (...args: unknown[]) => console.debug('[axcess]', ...args),
@@ -11,16 +11,7 @@ const logger = {
   error: (...args: unknown[]) => console.error('[axcess]', ...args),
 };
 
-function createDelegateContext(): DelegateContext {
-  return {
-    providers: {
-      openai: createOpenAIProvider(),
-    },
-    logger,
-  };
-}
-
-const delegateContext = createDelegateContext();
+const delegateContext: DelegateContext = buildDelegateContext(logger);
 
 const server = new Server({
   name: 'axcess-mcp',
