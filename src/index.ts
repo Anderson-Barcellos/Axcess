@@ -158,11 +158,6 @@ server.tool(
         instructions: {
           type: 'string',
           description: 'Objetivo e escopo dos testes.',
-        metadata: {
-          rationale: result.rationale,
-          usage: result.usage,
-          cost: result.cost,
-          meta: result.meta,
         },
         context: { type: 'string' },
         language: { type: 'string' },

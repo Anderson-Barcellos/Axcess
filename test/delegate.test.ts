@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { run, ProviderHandler } from '../src/delegate.ts';
-import { RouteRequest } from '../src/router.ts';
+import { run, ProviderHandler } from '../src/delegate.js';
+import { RouteRequest } from '../src/router.js';
 
 test('run aplica fallback quando apenas totalTokens está presente', async () => {
   const logs: string[] = [];
