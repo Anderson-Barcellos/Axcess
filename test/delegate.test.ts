@@ -35,5 +35,5 @@ test('run aplica fallback quando apenas totalTokens está presente', async () =>
   assert.equal(result.cost.input, 150 * 0.000003);
   assert.equal(result.cost.output, 0);
   assert.ok(result.rationale.some((entry) => entry.includes('apenas totalTokens')));
-  assert.ok(logs.some((entry) => entry.includes('somente totalTokens')));
+  assert.ok(logs.some((entry) => entry.includes('somente totalTokens fornecido')));
 });

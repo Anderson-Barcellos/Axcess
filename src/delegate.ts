@@ -122,32 +122,30 @@ export async function run(request: RouteRequest, context: DelegateContext): Prom
       const sanitizedOutput = sanitizeTokens(providerUsage.outputTokens);
       const sanitizedTotal = sanitizeTokens(providerUsage.totalTokens);
 
+      const onlyTotalProvided =
+        sanitizedTotal !== undefined && sanitizedInput === undefined && sanitizedOutput === undefined;
+
       const tokenFallbackNotes: string[] = [];
-      let inputTokens = estimatedInputTokens;
-      let outputTokens = 0;
+      let inputTokens = sanitizedInput ?? estimatedInputTokens;
+      let outputTokens = sanitizedOutput ?? 0;
 
-      const appliedTotalOnlyFallback =
-        sanitizedInput === undefined && sanitizedOutput === undefined && sanitizedTotal !== undefined;
-
-      if (sanitizedInput !== undefined) {
-        inputTokens = sanitizedInput;
-      } else if (appliedTotalOnlyFallback) {
+      if (onlyTotalProvided) {
         inputTokens = sanitizedTotal!;
         outputTokens = 0;
         const message =
-          'Provider informou apenas totalTokens; atribuindo todo o valor como input e 0 como output.';
+          'Provider informou apenas totalTokens; assumindo total como input_tokens e output_tokens=0.';
         tokenFallbackNotes.push(message);
         logger?.debug?.(
-          'delegate.run: providerUsage com somente totalTokens; assumindo input=%d e output=%d.',
+          'delegate.run: somente totalTokens fornecido; adotando input=%d e output=%d para cálculo de custos.',
           inputTokens,
           outputTokens,
         );
-      }
+      } else {
+        if (sanitizedInput === undefined && sanitizedTotal !== undefined) {
+          inputTokens = Math.max(sanitizedTotal - outputTokens, 0);
+        }
 
-      if (!appliedTotalOnlyFallback) {
-        if (sanitizedOutput !== undefined) {
-          outputTokens = sanitizedOutput;
-        } else if (sanitizedTotal !== undefined) {
+        if (sanitizedOutput === undefined && sanitizedTotal !== undefined) {
           outputTokens = Math.max(sanitizedTotal - inputTokens, 0);
         }
       }
