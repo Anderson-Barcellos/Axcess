@@ -1,6 +1,6 @@
 import { GenerativeServiceClient, type GenerateContentResponse } from '@google-ai/generativelanguage';
 import { GoogleAuth } from 'google-auth-library';
-import type { ProviderHandler } from '../delegate';
+import type { ProviderHandler } from '../delegate.js';
 
 export interface GoogleProviderOptions {
   apiKey?: string;

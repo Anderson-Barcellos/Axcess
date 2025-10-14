@@ -1,12 +1,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/stdio.js';
-import { run, type DelegateContext, type DelegateResult } from './delegate';
-import type { RouteRequest } from './router';
-import { createOpenAIProvider } from './providers/openai';
-import { executeDelegateDiff, type DelegateDiffInput } from './tools/diff';
-import { executeDelegateTests, type DelegateTestsInput } from './tools/tests';
-import { executeDelegateDocs, type DelegateDocsInput } from './tools/docs';
-import { createDelegateContext as buildDelegateContext } from './providers';
+import { run, type DelegateContext, type DelegateResult } from './delegate.js';
+import type { RouteRequest } from './router.js';
+import { createOpenAIProvider } from './providers/openai.js';
+import { executeDelegateDiff, type DelegateDiffInput } from './tools/diff.js';
+import { executeDelegateTests, type DelegateTestsInput } from './tools/tests.js';
+import { executeDelegateDocs, type DelegateDocsInput } from './tools/docs.js';
+import { createDelegateContext as buildDelegateContext } from './providers/index.js';
 
 const logger = {
   debug: (...args: unknown[]) => console.debug('[axcess]', ...args),

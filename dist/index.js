@@ -5,6 +5,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/stdio.js";
 // src/config.ts
 import { readFileSync } from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var modelsCache = null;
 var policiesCache = null;
 function getConfPath(filename) {

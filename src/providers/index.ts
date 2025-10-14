@@ -1,7 +1,7 @@
-import type { DelegateContext, ProviderHandler } from '../delegate';
-import { createAnthropicProvider } from './anthropic';
-import { createGoogleProvider } from './google';
-import { createOpenAIProvider } from './openai';
+import type { DelegateContext, ProviderHandler } from '../delegate.js';
+import { createAnthropicProvider } from './anthropic.js';
+import { createGoogleProvider } from './google.js';
+import { createOpenAIProvider } from './openai.js';
 
 export interface ProvidersEnvConfig {
   openaiApiKey?: string;

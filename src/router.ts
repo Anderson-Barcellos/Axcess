@@ -1,4 +1,4 @@
-import { loadModelsConfig, loadPoliciesConfig, ModelInfo } from './config';
+import { loadModelsConfig, loadPoliciesConfig, ModelInfo } from './config.js';
 
 export interface RouteCapsRequest {
   maxOutputTokens?: number;

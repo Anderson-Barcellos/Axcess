@@ -1,5 +1,5 @@
 import OpenAI, { APIError as OpenAIAPIError } from 'openai';
-import type { ProviderHandler } from '../delegate';
+import type { ProviderHandler } from '../delegate.js';
 
 export interface OpenAIProviderOptions {
   apiKey?: string;
