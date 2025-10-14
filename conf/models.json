@@ -1,0 +1,70 @@
+{
+  "aliases": {
+    "chat-default": "openai:gpt-4o-mini",
+    "chat-premium": "openai:gpt-4o",
+    "reasoning": "anthropic:claude-3-5-sonnet",
+    "long-context": "google:gemini-1.5-pro"
+  },
+  "models": {
+    "openai:gpt-4o-mini": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "max_output_tokens": 4096,
+      "temperature": 0.7,
+      "cap": {
+        "default": 2048,
+        "hard": 4096
+      },
+      "pricing": {
+        "currency": "USD",
+        "input": 0.000003,
+        "output": 0.000009
+      }
+    },
+    "openai:gpt-4o": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "max_output_tokens": 4096,
+      "temperature": 0.65,
+      "cap": {
+        "default": 3072,
+        "hard": 4096
+      },
+      "pricing": {
+        "currency": "USD",
+        "input": 0.00001,
+        "output": 0.00003
+      }
+    },
+    "anthropic:claude-3-5-sonnet": {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet",
+      "max_output_tokens": 4096,
+      "temperature": 0.6,
+      "cap": {
+        "default": 2048,
+        "hard": 4096
+      },
+      "pricing": {
+        "currency": "USD",
+        "input": 0.000008,
+        "output": 0.000024
+      }
+    },
+    "google:gemini-1.5-pro": {
+      "provider": "google",
+      "model": "gemini-1.5-pro",
+      "max_output_tokens": 8192,
+      "temperature": 0.7,
+      "cap": {
+        "default": 4096,
+        "hard": 8192
+      },
+      "pricing": {
+        "currency": "USD",
+        "input": 0.0000075,
+        "output": 0.0000225
+      }
+    }
+  }
+}

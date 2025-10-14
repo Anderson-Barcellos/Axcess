@@ -1,0 +1,53 @@
+{
+  "routing": {
+    "defaultAlias": "chat-default",
+    "languageHeuristics": {
+      "pt": {
+        "alias": "chat-premium",
+        "temperature": 0.6
+      },
+      "en": {
+        "alias": "chat-default",
+        "temperature": 0.7
+      },
+      "es": {
+        "alias": "chat-default",
+        "temperature": 0.65
+      }
+    },
+    "tokenBuckets": [
+      {
+        "maxPromptTokens": 1200,
+        "alias": "chat-default"
+      },
+      {
+        "minPromptTokens": 1200,
+        "maxPromptTokens": 2800,
+        "alias": "chat-premium"
+      },
+      {
+        "minPromptTokens": 2800,
+        "alias": "long-context"
+      }
+    ],
+    "fallbacks": {
+      "chat-default": ["chat-premium", "long-context", "reasoning"],
+      "chat-premium": ["long-context", "reasoning", "chat-default"],
+      "reasoning": ["chat-premium", "chat-default", "long-context"],
+      "long-context": ["chat-premium", "reasoning"]
+    }
+  },
+  "caps": {
+    "default": 2048,
+    "tiers": {
+      "trial": 1024,
+      "pro": 3072,
+      "enterprise": 4096
+    }
+  },
+  "temperatures": {
+    "default": 0.7,
+    "code": 0.25,
+    "creative": 0.9
+  }
+}
