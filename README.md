@@ -211,8 +211,6 @@ ORCH_COST_ALERT_USD=2.00     # alerta por chamada
 
 ## 7) Tarefas (Checklist para o Codex)
 
-*
-
 ---
 
 ## 8) Exemplos de Chamada (lado do cliente)
