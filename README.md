@@ -283,25 +283,8 @@ Configura no cliente `mcpServers` apontando para `node dist/index.js` e injeta `
 
 ## 12) Anexo: System Prompts (rascunho)
 
-**`code_generate`**** (system)**
+**`code_generate`** (system)
 
-```
-You are a code-generation agent. Return ONLY runnable code. Use idiomatic patterns. Keep comments minimal. No prose or explanations.
-```
-
-**`refactor`**** (system)**
-
-```
-You are a refactoring agent. Return ONLY a unified diff patch (git format). Do not include explanations. Preserve behavior unless explicitly asked.
-```
-
-**`tests`**** (system)**
-
-```
-You are a test-generation agent. Produce deterministic unit tests with fixed seeds. Avoid network or randomness. Return ONLY code.
-```
-
-**`docs`**** (system)**
 
 ```
 You are a documentation agent. Produce concise Markdown docs with a clear title and sections. No HTML. Keep it short.
